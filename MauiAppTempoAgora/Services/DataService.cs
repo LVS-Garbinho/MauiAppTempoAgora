@@ -1,6 +1,6 @@
 ﻿using MauiAppTempoAgora.Models;
 using Newtonsoft.Json.Linq;
-
+using System.Net.Http;
 
 namespace MauiAppTempoAgora.Services
 {
@@ -11,39 +11,51 @@ namespace MauiAppTempoAgora.Services
             Tempo? t = null;
 
             string chave = "6135072afe7f6cec1537d5cb08a5a1a2";
-
-            string url = $"https://api.openweathermap.org/data/2.5/weather?" +
-                         $"q={cidade}&units=metric&appid={chave}";
+            string url = $"https://api.openweathermap.org/data/2.5/weather?q={cidade}&units=metric&appid={chave}&lang=pt_br";
 
             using (HttpClient Client = new HttpClient())
             {
-                HttpResponseMessage resp = await Client.GetAsync(url);
-
-                if (resp.IsSuccessStatusCode)
+                try
                 {
-                    string json = await resp.Content.ReadAsStringAsync();
+                    HttpResponseMessage resp = await Client.GetAsync(url);
 
-                    var rascunho = JObject.Parse(json);
-
-                    DateTime time = new();
-                    DateTime sunrise = time.AddSeconds((double)rascunho["sys"]["sunrise"]).ToLocalTime();
-                    DateTime sunset = time.AddSeconds((double)rascunho["sys"]["sunset"]).ToLocalTime();
-
-                    t = new()
+                    if (resp.IsSuccessStatusCode)
                     {
-                        lat = (double)rascunho["coord"]["lat"],
-                        lon = (double)rascunho["coord"]["lon"],
-                        description = (string)rascunho["weather"][0]["description"],
-                        main = (string)rascunho["weather"][0]["description"],
-                        temp_min = (double)rascunho["main"]["temp_min"],
-                        temp_max = (double)rascunho["main"]["temp_max"],
-                        speed = (double)rascunho["wind"]["speed"],
-                        visibility = (int)rascunho["visibility"],
-                        sunrise = sunrise.ToString(),
-                        sunset = sunset.ToString(),
-                    }; //fecha obj do tempo
-                }//fecha if se o status do servidor foi de sucesso 
-            }//fecha laço using
+                        string json = await resp.Content.ReadAsStringAsync();
+                        var rascunho = JObject.Parse(json);
+
+                        DateTime time = new();
+                        DateTime sunrise = time.AddSeconds((double)rascunho["sys"]["sunrise"]).ToLocalTime();
+                        DateTime sunset = time.AddSeconds((double)rascunho["sys"]["sunset"]).ToLocalTime();
+
+                        t = new()
+                        {
+                            lat = (double)rascunho["coord"]["lat"],
+                            lon = (double)rascunho["coord"]["lon"],
+                            description = (string)rascunho["weather"][0]["description"],
+                            main = (string)rascunho["weather"][0]["main"],
+                            temp_min = (double)rascunho["main"]["temp_min"],
+                            temp_max = (double)rascunho["main"]["temp_max"],
+                            speed = (double)rascunho["wind"]["speed"],
+                            visibility = (int)rascunho["visibility"],
+                            sunrise = sunrise.ToString(),
+                            sunset = sunset.ToString(),
+                        };
+                    }
+                    else if (resp.StatusCode == System.Net.HttpStatusCode.NotFound)
+                    {
+                        throw new Exception("A previsão não foi encontrada. Por favor, verifique se o nome da cidade foi digitado corretamente.");
+                    }
+                    else
+                    {
+                        throw new Exception($"Erro ao buscar dados do tempo. Código: {(int)resp.StatusCode}");
+                    }
+                }
+                catch (HttpRequestException)
+                {
+                    throw new Exception("Você está sem conexão com a internet.");
+                }
+            }
 
             return t;
         }
